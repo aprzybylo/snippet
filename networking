@@ -1,0 +1,66 @@
+/* Networking Config */
+
+public class RetrofitConfig {
+
+	private Retrofit retrofit;
+
+	private static final RetrofitConfig ourInstance = new RetrofitConfig();
+
+	public static RetrofitConfig getInstance() {
+		return ourInstance;
+	}
+
+	private RetrofitConfig() {
+
+		CookieJar cookieJar = new CookieJar() {
+			private final HashMap<String, List<Cookie>> cookieStore = new HashMap<>();
+
+			@Override
+			public void saveFromResponse(HttpUrl url, List<Cookie> cookies) {
+				cookieStore.put(url.host(), cookies);
+			}
+
+			@Override
+			public List<Cookie> loadForRequest(HttpUrl url) {
+				List<Cookie> cookies = cookieStore.get(url.host());
+				return cookies != null ? cookies : new ArrayList<Cookie>();
+			}
+		};
+
+		Gson gson = new GsonBuilder()
+				.setLenient()
+				.create();
+
+
+		OkHttpClient okHttpClient = new OkHttpClient().newBuilder()
+				.connectTimeout(600, TimeUnit.SECONDS)
+				.readTimeout(600, TimeUnit.SECONDS)
+				.writeTimeout(600, TimeUnit.SECONDS)
+				.addInterceptor(headerAuthInterceptor)
+				.cookieJar(cookieJar)
+				.build();
+
+		retrofit = new Retrofit.Builder()
+				.baseUrl(BuildConfig.BASE_URL)
+				.client(okHttpClient)
+				.addConverterFactory(GsonConverterFactory.create(gson))
+				.build();
+
+	}
+
+	private Interceptor headerAuthInterceptor = new Interceptor() {
+		@Override
+		public okhttp3.Response intercept(Chain chain) throws IOException {
+
+			Request.Builder builder = chain.request().newBuilder();
+			builder.addHeader(Cons.USER_AGENT, System.getProperty(Cons.HTTP_AGENT))
+					.addHeader(Cons.CONTENT_TYPE, Cons.APP_TYPE_JSON);
+
+			return chain.proceed(builder.build());
+		}
+	};
+
+	public EndPoint getApi() {
+		return retrofit.create(EndPoint.class);
+	}
+}
