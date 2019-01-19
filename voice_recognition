@@ -1,5 +1,8 @@
    /**
-     * Voice Recognition
+     * VOICE RECOGNITION
+     * Fragment of Vehicle Booking class
+     * Enable user to book a vehicle using voice  
+     * Based on DialogFlow
      */
 
     @RequiresApi(api = Build.VERSION_CODES.M)
