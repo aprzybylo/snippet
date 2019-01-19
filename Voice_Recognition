@@ -1,0 +1,107 @@
+   /**
+     * Voice Recognition
+     */
+
+    @RequiresApi(api = Build.VERSION_CODES.M)
+    public void requestPermission() {
+
+        if (ContextCompat.checkSelfPermission(mActivity, Manifest.permission.RECORD_AUDIO)
+                != PackageManager.PERMISSION_GRANTED) {
+            if (ActivityCompat.shouldShowRequestPermissionRationale(mActivity,
+                    Manifest.permission.RECORD_AUDIO)) {
+                mAiButton.setVisibility(View.GONE);
+            } else {
+                ActivityCompat.requestPermissions(mActivity, new String[]{Manifest.permission.RECORD_AUDIO},
+                        MY_PERMISSIONS_REQUEST_RECORD_AUDIO);
+            }
+        }
+
+    }
+
+    public void initVoiceButton() {
+
+        /* Record Audio Permissions */
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            requestPermission();
+        }
+
+        final AIConfiguration config = new AIConfiguration(AIConfig.ACCESS_TOKEN,
+                AIConfiguration.SupportedLanguages.German,
+                AIConfiguration.RecognitionEngine.System);
+
+        config.setRecognizerStartSound(getResources().openRawResourceFd(R.raw.test_start));
+        config.setRecognizerStopSound(getResources().openRawResourceFd(R.raw.test_stop));
+        config.setRecognizerCancelSound(getResources().openRawResourceFd(R.raw.test_cancel));
+
+        mAiButton.initialize(config);
+        mAiButton.setResultsListener(this);
+
+    }
+
+    @Override
+    public void onResult(final AIResponse response) {
+
+        if (response != null) {
+
+            JsonRestCall postRequest = null;
+            String url = Cons.mVoiceRecPath;
+            String result = mSerializationHelper.toJson(response);
+
+            try {
+                postRequest = new JsonRestCall(Request.Method.PUT, url, new JSONObject(result), mActivity,
+                        new Response.Listener<JSONObject>() {
+                            @Override
+                            public void onResponse(JSONObject response) {
+                                if (response != null) {
+                                    onVoiceBookingResponse(response);
+                                }
+                            }
+                        }
+                );
+
+            } catch (JSONException e) {
+                Log.d(TAG, Log.getStackTraceString(e));
+            }
+
+            Volley.newRequestQueue(getActivity()).add(postRequest);
+
+        }
+    }
+
+    @Override
+    public void onError(final AIError error) {
+        Log.d(TAG, Cons.onError);
+    }
+
+    @Override
+    public void onCancelled() {
+        Log.d(TAG, Cons.onCancelled);
+    }
+
+
+    public void onVoiceBookingResponse(JSONObject response) {
+
+        VoiceRecognitionResponse mVoiceResponse = null;
+
+        try {
+            mVoiceResponse = mMapper.readValue(response.toString(), VoiceRecognitionResponse.class);
+        } catch (IOException e) {
+            Log.d(TAG, Log.getStackTraceString(e));
+        }
+
+        // Refresh List
+        getBookingList(false);
+
+
+        if (mVoiceResponse != null) {
+            String speech = mVoiceResponse.getFulfillmentMessages();
+
+            // Message
+            Toast.makeText(mActivity.getBaseContext(), speech, Toast.LENGTH_LONG).show();
+
+            // Say message
+            TTS.init(mActivity.getBaseContext(), speech);
+        }
+
+    }
